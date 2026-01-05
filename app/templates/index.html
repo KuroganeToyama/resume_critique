@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Resume Critique{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <h1 style="font-size: 2.5rem; margin-bottom: 1rem;">Resume Critique Application</h1>
+    <p style="font-size: 1.2rem; color: #666; margin-bottom: 2rem;">
+        Deterministic, rubric-based resume evaluation with progress tracking
+    </p>
+    
+    <div style="margin-bottom: 2rem;">
+        <a href="/dashboard" class="btn" style="margin: 0.5rem;">Go to Dashboard</a>
+    </div>
+    
+    <div class="alert alert-info" style="text-align: left; max-width: 600px; margin: 2rem auto;">
+        <h3>Features:</h3>
+        <ul style="margin-left: 2rem; margin-top: 1rem;">
+            <li>Deterministic job-specific rubric generation</li>
+            <li>Resume evaluation against explicit criteria</li>
+            <li>Progress tracking across resume versions</li>
+            <li>Bounded LLM usage for extraction and explanations</li>
+        </ul>
+    </div>
+    
+    <div style="margin-top: 2rem; padding: 1rem; background: #ecf0f1; border-radius: 8px; max-width: 600px; margin-left: auto; margin-right: auto;">
+        <h3>Getting Started</h3>
+        <p style="margin-top: 0.5rem;">
+            Note: This app requires Supabase authentication. 
+            Please configure your Supabase credentials in the .env file before using the application.
+        </p>
+    </div>
+</div>
+{% endblock %}
