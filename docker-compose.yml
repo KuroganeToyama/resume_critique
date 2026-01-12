@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resume-critique-web
+    ports:
+      - "8000:8000"
+    environment:
+      # Supabase Configuration
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      
+      # OpenAI Configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4-turbo-preview}
+      
+      # App Configuration
+      - SECRET_KEY=${SECRET_KEY}
+      - APP_ENV=${APP_ENV:-production}
+      
+      # Rubric Configuration
+      - BASE_RUBRIC_VERSION=${BASE_RUBRIC_VERSION:-1.0.0}
+      - RULESET_VERSION=${RULESET_VERSION:-1.0.0}
+    volumes:
+      # Mount code for development (remove in production)
+      - ./app:/app/app:ro
+      - ./templates:/app/templates:ro
+    restart: unless-stopped
+    networks:
+      - resume-critique-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  resume-critique-network:
+    driver: bridge

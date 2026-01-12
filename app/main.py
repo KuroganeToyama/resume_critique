@@ -15,6 +15,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Health check endpoint for Docker
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring."""
+    return {"status": "healthy", "version": "1.0.0"}
+
 # Mount static files
 # app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

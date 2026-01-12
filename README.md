@@ -138,6 +138,8 @@ Fixed set of evaluation criteria across 4 categories:
 
 ## Setup
 
+### Local Development
+
 1. Create a virtual environment:
 ```bash
 python -m venv venv
@@ -167,3 +169,93 @@ python main.py
 ```
 
 The app will be available at http://localhost:8000
+
+### Docker Deployment
+
+Self-host using Docker for production deployments.
+
+#### Quick Start
+
+1. **Set up environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Supabase and OpenAI credentials
+   ```
+
+2. **Build and run with Docker Compose**:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Access the application**:
+   - App: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+   - Health Check: http://localhost:8000/health
+
+#### Environment Variables
+
+Required variables in `.env`:
+
+```env
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-service-role-key
+SUPABASE_ANON_KEY=your-anon-key
+
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key
+LLM_MODEL=gpt-4-turbo-preview
+
+# App
+SECRET_KEY=your-secret-key-here
+APP_ENV=production
+```
+
+#### Docker Commands
+
+**Build**:
+```bash
+docker-compose build
+```
+
+**Start**:
+```bash
+docker-compose up -d
+```
+
+**Stop**:
+```bash
+docker-compose down
+```
+
+**View Logs**:
+```bash
+docker-compose logs -f web
+```
+
+**Restart**:
+```bash
+docker-compose restart
+```
+
+**Rebuild and Restart**:
+```bash
+docker-compose up -d --build
+```
+
+#### Monitoring
+
+**Health Check**:
+```bash
+curl http://localhost:8000/health
+```
+
+**Container Status**:
+```bash
+docker-compose ps
+```
+
+**Resource Usage**:
+```bash
+docker stats resume-critique-web
+```
