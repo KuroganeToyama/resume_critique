@@ -148,3 +148,26 @@ class RewriteSuggestion(BaseModel):
 class RewriteSuggestionsResponse(BaseModel):
     """LLM response for rewrite suggestions."""
     suggestions: List[RewriteSuggestion]
+
+
+class JobAnalysis(BaseModel):
+    """LLM analysis of job posting."""
+    role_level: str  # "junior", "mid", "senior", "lead"
+    domain: str  # "technology", "healthcare", "finance", "sales", etc.
+    job_function: str  # "engineering", "nursing", "accounting", "marketing"
+    key_requirements: List[str]  # Main requirements from job
+    required_skills: List[str]  # Critical skills needed
+    preferred_skills: List[str]  # Nice-to-have skills
+    evaluation_priorities: Dict[str, str]  # dimension_name -> "high"/"medium"/"low"
+
+
+class DimensionWeight(BaseModel):
+    """Weight configuration for a dimension."""
+    enabled: bool
+    weight: float
+    reasoning: str  # Why this dimension matters for this job
+
+
+class DimensionMapping(BaseModel):
+    """LLM mapping of job requirements to dimensions."""
+    dimensions: Dict[str, DimensionWeight]  # dimension_name -> weight config

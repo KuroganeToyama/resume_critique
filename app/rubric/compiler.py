@@ -1,34 +1,53 @@
 """
-Deterministic job rubric compiler (Option A1).
+Hybrid job rubric compiler.
 
-Compiles job postings into rubrics using deterministic rules.
-Same posting + same ruleset = same rubric.
+Uses LLM for job analysis and dimension mapping (universal job support).
+Falls back to deterministic regex rules if LLM fails.
 """
 import re
 import hashlib
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from app.rubric.dimensions import DIMENSIONS
 from app.rubric.vocabulary import find_tags_in_text
+from app.services.llm_client import llm_client
+from app.schemas.schemas import JobAnalysis, DimensionMapping
 
 
 class RubricCompiler:
-    """Deterministic rubric compiler."""
+    """Hybrid rubric compiler with LLM support."""
     
-    # Weighting formula coefficients
+    # Weighting formula coefficients (for fallback)
     ALPHA = 0.3  # Required hits
     BETA = 0.15  # Preferred hits
     GAMMA = 0.2  # Phrase strength
     DELTA = 0.1  # Role level adjustment
     
-    def __init__(self):
+    def __init__(self, use_llm: bool = True):
         self.dimensions = DIMENSIONS
+        self.use_llm = use_llm
     
     def compile_rubric(self, job_posting: str) -> Dict[str, Any]:
         """
         Compile a job posting into a rubric.
         
+        Uses LLM for universal job support, falls back to regex for tech jobs.
+        
         Returns:
             Dictionary with rubric configuration
+        """
+        if self.use_llm:
+            try:
+                # Try LLM-based compilation (works for all job types)
+                return self._compile_with_llm(job_posting)
+            except Exception as e:
+                print(f"LLM compilation failed, falling back to regex: {e}")
+        
+        # Fallback: Original regex-based compilation (tech-focused)
+        return self._compile_with_regex(job_posting)
+    
+    def _compile_with_regex(self, job_posting: str) -> Dict[str, Any]:
+        """
+        Original regex-based compilation (tech-focused).
         """
         # 1. Parse sections
         sections = self._parse_sections(job_posting)
@@ -288,3 +307,155 @@ class RubricCompiler:
     def _hash_job_posting(self, job_posting: str) -> str:
         """Generate deterministic hash of job posting."""
         return hashlib.sha256(job_posting.encode()).hexdigest()[:16]
+    
+    def _compile_with_llm(self, job_posting: str) -> Dict[str, Any]:
+        """
+        LLM-based compilation for universal job support.
+        """
+        # Phase 1: Analyze job posting
+        job_analysis = self._llm_analyze_job(job_posting)
+        
+        # Phase 2: Map to dimensions
+        dimension_mapping = self._llm_map_to_dimensions(job_analysis, job_posting)
+        
+        # Phase 3: Build dimension configs
+        dimension_configs = self._build_dimension_configs(dimension_mapping)
+        
+        # Generate hash
+        job_hash = self._hash_job_posting(job_posting)
+        
+        return {
+            "job_posting_hash": job_hash,
+            "role_level": job_analysis.role_level,
+            "domain": job_analysis.domain,
+            "job_function": job_analysis.job_function,
+            "sections": {"analysis": "LLM-based"},
+            "tags": {"requirements": job_analysis.key_requirements},
+            "dimension_configs": dimension_configs
+        }
+    
+    def _llm_analyze_job(self, job_posting: str) -> JobAnalysis:
+        """
+        Use LLM to analyze job posting and extract key information.
+        """
+        system_prompt = """You are a job posting analyst. Extract structured information from any type of job posting.
+
+Analyze the role level, domain, job function, and requirements.
+
+For evaluation_priorities, assess which dimensions matter most:
+- impact: importance of measurable outcomes
+- evidence: need for quantified achievements
+- clarity: importance of clear communication
+- skill_alignment: criticality of specific skills
+- tooling_match: importance of specific tools/technologies
+- domain_relevance: importance of industry experience
+- leadership: need for leadership/mentorship
+- communication: importance of interpersonal skills
+
+Rate each as "high", "medium", or "low"."""
+        
+        prompt = f"""Analyze this job posting:
+
+{job_posting}
+
+Extract:
+1. Role level (junior/mid/senior/lead)
+2. Domain (technology/healthcare/finance/sales/marketing/education/etc)
+3. Job function (engineering/nursing/accounting/sales/teaching/etc)
+4. Key requirements (top 5-7 main requirements)
+5. Required skills (must-have skills)
+6. Preferred skills (nice-to-have skills)
+7. Evaluation priorities (which dimensions matter most)"""
+        
+        result = llm_client.extract_structured(
+            prompt=prompt,
+            response_model=JobAnalysis,
+            system_prompt=system_prompt,
+            temperature=0.1
+        )
+        
+        return result
+    
+    def _llm_map_to_dimensions(self, job_analysis: JobAnalysis, job_posting: str) -> DimensionMapping:
+        """
+        Use LLM to map job requirements to rubric dimensions.
+        """
+        # Build dimension descriptions for LLM
+        dim_descriptions = []
+        for name, dim in self.dimensions.items():
+            signals_str = ", ".join(dim.signals[:3])  # First 3 signals
+            dim_descriptions.append(
+                f"- {name} ({dim.category.value}): Checks {signals_str}"
+            )
+        
+        system_prompt = """You are a rubric designer. Map job requirements to evaluation dimensions.
+
+For each dimension, decide:
+1. Should it be enabled? (true/false)
+2. How important is it? (weight: 0.5-2.0, default 1.0)
+3. Why does it matter for this job?
+
+Higher weights (1.5-2.0) for critical dimensions.
+Lower weights (0.5-0.8) for less relevant dimensions.
+Disable dimensions that don't apply."""
+        
+        prompt = f"""Job Analysis:
+- Role: {job_analysis.role_level} {job_analysis.job_function}
+- Domain: {job_analysis.domain}
+- Key requirements: {', '.join(job_analysis.key_requirements[:5])}
+- Priority dimensions: {job_analysis.evaluation_priorities}
+
+Available dimensions:
+{chr(10).join(dim_descriptions)}
+
+Map these job requirements to dimensions with weights and reasoning."""
+        
+        result = llm_client.extract_structured(
+            prompt=prompt,
+            response_model=DimensionMapping,
+            system_prompt=system_prompt,
+            temperature=0.2
+        )
+        
+        return result
+    
+    def _build_dimension_configs(self, dimension_mapping: DimensionMapping) -> Dict[str, Dict[str, Any]]:
+        """
+        Build final dimension configs from LLM mapping.
+        """
+        dimension_configs = {}
+        
+        for dim_name, dimension in self.dimensions.items():
+            # Get LLM recommendation
+            llm_weight = dimension_mapping.dimensions.get(dim_name)
+            
+            if llm_weight:
+                # Use LLM's decision
+                config = {
+                    "enabled": llm_weight.enabled,
+                    "weight": max(0.5, min(2.0, llm_weight.weight)),  # Clamp
+                    "category": dimension.category.value,
+                    "signals": dimension.signals,
+                    "scoring_scale": dimension.scoring_scale,
+                    "feedback_templates": dimension.feedback_templates,
+                    "relevant_tags": [],
+                    "activation_score": llm_weight.weight,
+                    "reasoning": llm_weight.reasoning
+                }
+            else:
+                # Fallback to default
+                config = {
+                    "enabled": dimension.default_enabled,
+                    "weight": dimension.default_weight,
+                    "category": dimension.category.value,
+                    "signals": dimension.signals,
+                    "scoring_scale": dimension.scoring_scale,
+                    "feedback_templates": dimension.feedback_templates,
+                    "relevant_tags": [],
+                    "activation_score": 0.0,
+                    "reasoning": "Default configuration"
+                }
+            
+            dimension_configs[dim_name] = config
+        
+        return dimension_configs
