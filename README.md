@@ -1,14 +1,39 @@
 # Resume Critique Web App
 
-A LLM-powered resume critique web app with clear rubrics.
+A LLM-powered resume critique web app with clear rubrics for any job type.
 
 ## Features
 
-- Deterministic job-specific rubric generation
+- **Universal Job Support**: Works for tech, healthcare, finance, sales, education, and more
+- **Hybrid Rubric Generation**: LLM-powered job analysis with deterministic evaluation
 - Resume evaluation against explicit criteria
 - Progress tracking across resume versions
 - Bounded LLM usage for extraction and explanations
 - Supabase authentication and storage
+
+## How It Works
+
+### Rubric Generation (LLM-Powered)
+```
+Job Posting → LLM Analysis → Dimension Mapping → Custom Rubric
+```
+
+1. **Job Analysis**: LLM extracts role level, domain, requirements, and priorities
+2. **Dimension Mapping**: LLM decides which dimensions matter and assigns weights
+3. **Rubric Storage**: Configuration saved for consistent evaluation
+
+### Resume Evaluation (Deterministic)
+```
+Resume Upload → Text Extraction → Structure Parsing → Signal Checks → Scores
+```
+
+1. **Text Extraction**: PyPDF2/python-docx extracts raw text
+2. **Structure Parsing**: LLM identifies sections and bullets with metadata
+3. **Signal Checks**: Deterministic checks (action verbs, metrics, tools, outcomes)
+4. **Scoring**: Pass rates mapped to 1-5 scale with content penalties
+5. **Recommendations**: Top priorities and quick wins generated
+
+**Key Principle**: Same resume + same rubric = same score (deterministic)
 
 ## Repository Structure
 
@@ -25,10 +50,10 @@ app/
     jobs.py                 - Job CRUD (create, list, get, update, delete)
     resumes.py              - Resume upload, evaluation, progress tracking
   
-  rubric/                   - Rubric system (deterministic)
+  rubric/                   - Rubric system
     dimensions.py           - Fixed 17 dimensions with signals and scoring scales
-    compiler.py             - Job posting → rubric compilation (regex-based)
-    vocabulary.py           - Keyword → tag dictionary for dimension activation
+    compiler.py             - Hybrid compiler (LLM + regex fallback)
+    vocabulary.py           - Keyword → tag dictionary (for regex fallback)
   
   services/                 - Business logic
     job_service.py          - Job processing utilities
@@ -37,7 +62,7 @@ app/
     llm_client.py           - OpenAI API wrapper with JSON validation
   
   schemas/                  - Pydantic models
-    schemas.py              - Request/response models for all endpoints
+    schemas.py              - Request/response models (includes JobAnalysis, DimensionMapping)
   
   models/                   - Database models
     database.py             - Table schemas (jobs, rubrics, resume_versions, evaluations)
@@ -57,6 +82,59 @@ schema.sql                  - Same SQL schema but with better visibility
 .env.example                - Environment variables template
 requirements.txt            - Python dependencies
 ```
+
+## Architecture
+
+### The 17 Dimensions
+
+Fixed set of evaluation criteria across 4 categories:
+
+**Core (4)**: Always applicable
+- clarity, evidence, impact, structure
+
+**Alignment (4)**: Job-specific matching
+- skill_alignment, tooling_match, domain_relevance, level_appropriateness
+
+**Risk (3)**: Quality indicators
+- signal_density, consistency, security_awareness
+
+**Contextual (6)**: Specialized aspects
+- communication, leadership, data_rigor, research_quality, collaboration, innovation
+
+### LLM Usage (Bounded)
+
+**Rubric Generation (one-time per job)**:
+- Job analysis: Extract requirements, domain, role level
+- Dimension mapping: Decide which dimensions apply and their weights
+
+**Resume Processing (one-time per upload)**:
+- Structure extraction: Parse sections and bullets
+- Optional rewrite suggestions (max 5)
+
+**Evaluation Scoring**: No LLM (fully deterministic)
+
+### Scoring Logic
+
+**Signal Checks**: Each dimension has signals (e.g., "has_metrics", "clear_action_verbs")
+- Run checks on every bullet
+- Track failures
+
+**Pass Rate**: `(total_checks - failures) / total_checks`
+
+**Score Mapping** (stricter thresholds):
+- 95%+ → 5.0
+- 85%+ → 4.0
+- 70%+ → 3.0
+- 50%+ → 2.0
+- <50% → 1.0
+
+**Content Penalties**:
+- No work experience → 1.0 for critical dimensions
+- <3 bullets → 1.5
+- <5 bullets → 30% penalty
+- <8 bullets → 15% penalty
+
+**Overall Score**: Weighted average of dimension scores
 
 ## Setup
 
