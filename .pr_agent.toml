@@ -10,6 +10,7 @@ add_original_user_description = true     # preserves what the author already wro
 generate_ai_title = false
 use_bullet_points = true
 include_generated_by_header = true
+use_description_markers = true
 
 extra_instructions = """
 Structure the PR description with exactly these headings, in this order:
@@ -20,6 +21,3 @@ Structure the PR description with exactly these headings, in this order:
 ## Impact within this repo
 ## Impact on other repos in the org
 """
-
-[pr_description]
-use_description_markers = true
