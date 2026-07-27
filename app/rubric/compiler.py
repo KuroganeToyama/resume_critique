@@ -69,12 +69,22 @@ class RubricCompiler:
         
         # 5. Generate job posting hash
         job_hash = self._hash_job_posting(job_posting)
-        
+
+        # 6. Flatten matched vocabulary terms into required/preferred skill lists
+        required_skills = sorted({
+            term for terms in section_tags.get("required", {}).values() for term in terms
+        })
+        preferred_skills = sorted({
+            term for terms in section_tags.get("preferred", {}).values() for term in terms
+        })
+
         return {
             "job_posting_hash": job_hash,
             "role_level": role_level,
             "sections": sections,
             "tags": section_tags,
+            "required_skills": required_skills,
+            "preferred_skills": preferred_skills,
             "dimension_configs": dimension_configs
         }
     
@@ -331,6 +341,8 @@ class RubricCompiler:
             "job_function": job_analysis.job_function,
             "sections": {"analysis": "LLM-based"},
             "tags": {"requirements": job_analysis.key_requirements},
+            "required_skills": job_analysis.required_skills,
+            "preferred_skills": job_analysis.preferred_skills,
             "dimension_configs": dimension_configs
         }
     
