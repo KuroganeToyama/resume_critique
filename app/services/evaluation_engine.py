@@ -39,7 +39,8 @@ class EvaluationEngine:
             score, failed_checks = self._evaluate_dimension(
                 dim_name,
                 dim_config,
-                resume_extraction
+                resume_extraction,
+                rubric_config
             )
             
             dimension_scores[dim_name] = {
@@ -70,7 +71,8 @@ class EvaluationEngine:
         self,
         dim_name: str,
         dim_config: Dict[str, Any],
-        resume_extraction: ResumeExtraction
+        resume_extraction: ResumeExtraction,
+        rubric_config: Dict[str, Any]
     ) -> Tuple[float, List[Dict]]:
         """
         Evaluate a single dimension.
@@ -105,7 +107,8 @@ class EvaluationEngine:
             check_failures = self._run_signal_check(
                 signal,
                 dim_name,
-                all_bullets
+                all_bullets,
+                rubric_config
             )
             failed_checks.extend(check_failures)
         
@@ -143,7 +146,8 @@ class EvaluationEngine:
         self,
         signal: str,
         dimension: str,
-        bullets: List[ResumeBullet]
+        bullets: List[ResumeBullet],
+        rubric_config: Dict[str, Any]
     ) -> List[Dict]:
         """
         Run a specific signal check on bullets.
@@ -222,34 +226,39 @@ class EvaluationEngine:
         
         # New skill/tool matching signals
         elif signal == "required_skills_present":
-            # Check if resume mentions required skills from job
-            all_text = " ".join([b.text.lower() for b in bullets])
-            required_skills = ['python', 'java', 'c++', 'sql', 'database', 'backend', 'api']
-            missing_skills = [skill for skill in required_skills if skill not in all_text]
-            if len(missing_skills) > len(required_skills) * 0.5:  # Missing >50% of required
-                failed.append({
-                    "signal": signal,
-                    "dimension": dimension,
-                    "issue": f"Missing critical skills: {', '.join(missing_skills[:3])}",
-                    "context": "Required skills not found in resume"
-                })
-        
+            # Check if resume mentions the skills this specific job requires
+            required_skills = [s.lower() for s in rubric_config.get("required_skills", [])]
+            if required_skills:
+                all_text = " ".join([b.text.lower() for b in bullets])
+                missing_skills = [skill for skill in required_skills if skill not in all_text]
+                if len(missing_skills) > len(required_skills) * 0.5:  # Missing >50% of required
+                    failed.append({
+                        "signal": signal,
+                        "dimension": dimension,
+                        "issue": f"Missing critical skills: {', '.join(missing_skills[:3])}",
+                        "context": "Required skills not found in resume"
+                    })
+
         elif signal == "exact_tool_match":
-            # Check for specific tools mentioned in job
-            all_tools = set()
-            for bullet in bullets:
-                if bullet.tools:
-                    all_tools.update([t.lower() for t in bullet.tools])
-            
-            common_tools = ['docker', 'kubernetes', 'aws', 'gcp', 'redis', 'postgresql', 'git']
-            tool_mentions = sum(1 for tool in common_tools if tool in all_tools)
-            if tool_mentions == 0:
-                failed.append({
-                    "signal": signal,
-                    "dimension": dimension,
-                    "issue": "No modern development tools mentioned",
-                    "context": "Resume should mention relevant tools and technologies"
-                })
+            # Check for the specific tools/skills this job calls out
+            job_tools = [
+                s.lower() for s in
+                rubric_config.get("required_skills", []) + rubric_config.get("preferred_skills", [])
+            ]
+            if job_tools:
+                all_tools = set()
+                for bullet in bullets:
+                    if bullet.tools:
+                        all_tools.update([t.lower() for t in bullet.tools])
+
+                tool_mentions = sum(1 for tool in job_tools if tool in all_tools)
+                if tool_mentions == 0:
+                    failed.append({
+                        "signal": signal,
+                        "dimension": dimension,
+                        "issue": "No tools relevant to this job mentioned",
+                        "context": "Resume should mention tools and technologies from the job posting"
+                    })
         
         elif signal == "demonstrated_tool_proficiency":
             # Check if tools are actually used in context, not just listed
