@@ -1,0 +1,25 @@
+[github_app]
+handle_pr_actions = ["opened", "reopened", "ready_for_review"]
+pr_commands = [
+    "/describe",
+]
+
+[pr_description]
+publish_description_as_comment = false   # false = writes into the real description field
+add_original_user_description = true     # preserves what the author already wrote, above the AI content
+generate_ai_title = false
+use_bullet_points = true
+include_generated_by_header = true
+
+extra_instructions = """
+Structure the PR description with exactly these headings, in this order:
+
+## What changed
+## Tests updated
+## Tests added
+## Impact within this repo
+## Impact on other repos in the org
+"""
+
+[pr_description]
+use_description_markers = true
