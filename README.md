@@ -11,8 +11,6 @@ A LLM-powered resume critique web app with clear rubrics for any job type.
 - Bounded LLM usage for extraction and explanations
 - Supabase authentication and storage
 
-## How It Works
-
 ### Rubric Generation (LLM-Powered)
 ```
 Job Posting → LLM Analysis → Dimension Mapping → Custom Rubric
