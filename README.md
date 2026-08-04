@@ -1,6 +1,4 @@
-# Resume Critique Web App
 
-A LLM-powered resume critique web app with clear rubrics for any job type.
 
 ## Features
 
